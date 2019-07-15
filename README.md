@@ -3,8 +3,8 @@ This is a hastily modified version of
 [differential-evolution-rs](https://docs.rs/differential-evolution/0.2.2/differential_evolution/)
 library. 
 
-I needed an optimization library that could be compiled to WebAssembly for
-use in a [demo](http://mediangroup.org/insights2) I was working on, and
+We needed an optimization library that could be compiled to WebAssembly for
+use in a [demo](http://mediangroup.org/insights2) we were working on, and
 most of them required functionality that wasn't easily available in WASM
 (e.g., [`rusty_machine`](https://crates.io/crates/rusty-machine/) depends
 on an old version of [`rand`](https://crates.io/crates/rand) that doesn't
