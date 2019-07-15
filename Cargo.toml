@@ -1,13 +1,10 @@
 [package]
-version = "0.2.2"
-documentation = "https://docs.rs/differential-evolution/0.2.2/differential_evolution/"
-
-name = "differential-evolution"
-authors = ["Martin Ankerl <martin.ankerl@gmail.com>"]
+version = "0.0.1"
+name = "differential-evolution2"
+authors = ["Baeo Maltinsky <baeo.maltinsky@gmail.com>"]
 license = "MIT/Apache-2.0"
 readme = "README.md"
-
-repository = "https://github.com/martinus/differential-evolution-rs"
+edition = "2018"
 
 description = """
 Simple and powerful global optimization using a self-adapting differential evolution.
@@ -15,4 +12,5 @@ Simple and powerful global optimization using a self-adapting differential evolu
 keywords = ["evolution", "optimization", "genetic", "DE"]
 
 [dependencies]
-rand = "0.3"
+rand = "0.7"
+rand_xorshift = "0.2"

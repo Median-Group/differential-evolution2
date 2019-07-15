@@ -144,14 +144,16 @@
 
 extern crate rand;
 
-use rand::distributions::{IndependentSample, Range};
+use rand::{distributions::Uniform, prelude::*};
+use rand_xorshift::XorShiftRng;
 
 /// Holds all settings for the self adaptive differential evolution
 /// algorithm.
 pub struct Settings<F, R, C>
-    where F: Fn(&[f32]) -> C,
-          R: rand::Rng,
-          C: PartialOrd + Clone
+where
+    F: Fn(&[f32]) -> C,
+    R: rand::Rng,
+    C: PartialOrd + Clone,
 {
     /// The population is initialized with uniform random
     /// for each dimension between the tuple's size.
@@ -199,9 +201,10 @@ pub struct Settings<F, R, C>
     pub cost_function: F,
 }
 
-impl<F, C> Settings<F, rand::XorShiftRng, C>
-    where F: Fn(&[f32]) -> C,
-          C: PartialOrd + Clone
+impl<F, C> Settings<F, XorShiftRng, C>
+where
+    F: Fn(&[f32]) -> C,
+    C: PartialOrd + Clone,
 {
     /// Creates default settings for the differential evolution. It uses the default
     /// parameters as defined in the paper "Self-Adapting Control Parameters in Differential
@@ -210,9 +213,7 @@ impl<F, C> Settings<F, rand::XorShiftRng, C>
     /// generator available.
     ///
     /// For most problems this should be a fairly good parameter set.
-    pub fn default(min_max_pos: Vec<(f32, f32)>,
-                   cost_function: F)
-                   -> Settings<F, rand::XorShiftRng, C> {
+    pub fn default(min_max_pos: Vec<(f32, f32)>, cost_function: F) -> Settings<F, XorShiftRng, C> {
         Settings {
             min_max_pos: min_max_pos,
 
@@ -223,7 +224,7 @@ impl<F, C> Settings<F, rand::XorShiftRng, C>
             f_change_probability: 0.1,
 
             pop_size: 100,
-            rng: rand::weak_rng(),
+            rng: XorShiftRng::seed_from_u64(2),
 
             cost_function: cost_function,
         }
@@ -233,7 +234,8 @@ impl<F, C> Settings<F, rand::XorShiftRng, C>
 /// Internally used struct for an inivididual.
 #[derive(Clone)]
 struct Individual<C>
-    where C: PartialOrd + Clone
+where
+    C: PartialOrd + Clone,
 {
     pos: Vec<f32>,
     // the lower, the better.
@@ -246,9 +248,10 @@ struct Individual<C>
 
 /// Holds the population for the differential evolution based on the given settings.
 pub struct Population<F, R, C>
-    where F: Fn(&[f32]) -> C,
-          R: rand::Rng,
-          C: PartialOrd + Clone
+where
+    F: Fn(&[f32]) -> C,
+    R: rand::Rng,
+    C: PartialOrd + Clone,
 {
     curr: Vec<Individual<C>>,
     best: Vec<Individual<C>>,
@@ -263,35 +266,39 @@ pub struct Population<F, R, C>
     num_cost_evaluations: usize,
 
     dim: usize,
-    between_popsize: Range<usize>,
-    between_dim: Range<usize>,
-    between_cr: Range<f32>,
-    between_f: Range<f32>,
+    between_popsize: Uniform<usize>,
+    between_dim: Uniform<usize>,
+    between_cr: Uniform<f32>,
+    between_f: Uniform<f32>,
 
     pop_countdown: usize,
 }
 
-
 /// Convenience function to create a fully configured self adaptive
 /// differential evolution population.
-pub fn self_adaptive_de<F, C>(min_max_pos: Vec<(f32, f32)>,
-                              cost_function: F)
-                              -> Population<F, rand::XorShiftRng, C>
-    where F: Fn(&[f32]) -> C,
-          C: PartialOrd + Clone
+pub fn self_adaptive_de<F, C>(
+    min_max_pos: Vec<(f32, f32)>,
+    cost_function: F,
+) -> Population<F, XorShiftRng, C>
+where
+    F: Fn(&[f32]) -> C,
+    C: PartialOrd + Clone,
 {
     Population::new(Settings::default(min_max_pos, cost_function))
 }
 
 impl<F, R, C> Population<F, R, C>
-    where F: Fn(&[f32]) -> C,
-          R: rand::Rng,
-          C: PartialOrd + Clone
+where
+    F: Fn(&[f32]) -> C,
+    R: rand::Rng,
+    C: PartialOrd + Clone,
 {
     /// Creates a new population based on the given settings.
     pub fn new(s: Settings<F, R, C>) -> Population<F, R, C> {
-        assert!(s.min_max_pos.len() >= 1,
-                "need at least one element to optimize");
+        assert!(
+            s.min_max_pos.len() >= 1,
+            "need at least one element to optimize"
+        );
 
         // create a vector of randomly initialized individuals for current.
         let dim = s.min_max_pos.len();
@@ -313,23 +320,23 @@ impl<F, R, C> Population<F, R, C>
             num_cost_evaluations: 0,
             dim: dim,
             pop_countdown: s.pop_size,
-            between_popsize: Range::new(0, s.pop_size),
-            between_dim: Range::new(0, dim),
-            between_cr: Range::new(s.cr_min_max.0, s.cr_min_max.1),
-            between_f: Range::new(s.f_min_max.0, s.f_min_max.1),
+            between_popsize: Uniform::new(0, s.pop_size),
+            between_dim: Uniform::new(0, dim),
+            between_cr: Uniform::new(s.cr_min_max.0, s.cr_min_max.1),
+            between_f: Uniform::new(s.f_min_max.0, s.f_min_max.1),
             settings: s,
         };
 
         for ind in &mut pop.curr {
             // init control parameters
-            ind.cr = pop.between_cr.ind_sample(&mut pop.settings.rng);
-            ind.f = pop.between_f.ind_sample(&mut pop.settings.rng);
+            ind.cr = pop.between_cr.sample(&mut pop.settings.rng);
+            ind.f = pop.between_f.sample(&mut pop.settings.rng);
 
             // random range for each dimension
             for d in 0..dim {
-                let between_min_max = Range::new(pop.settings.min_max_pos[d].0,
-                                                 pop.settings.min_max_pos[d].1);
-                ind.pos[d] = between_min_max.ind_sample(&mut pop.settings.rng);
+                let between_min_max =
+                    Uniform::new(pop.settings.min_max_pos[d].0, pop.settings.min_max_pos[d].1);
+                ind.pos[d] = between_min_max.sample(&mut pop.settings.rng);
             }
         }
 
@@ -367,16 +374,16 @@ impl<F, R, C> Population<F, R, C>
         let rng = &mut self.settings.rng;
         for i in 0..self.curr.len() {
             // sample 3 different individuals
-            let id1 = self.between_popsize.ind_sample(rng);
+            let id1 = self.between_popsize.sample(rng);
 
-            let mut id2 = self.between_popsize.ind_sample(rng);
+            let mut id2 = self.between_popsize.sample(rng);
             while id2 == id1 {
-                id2 = self.between_popsize.ind_sample(rng);
+                id2 = self.between_popsize.sample(rng);
             }
 
-            let mut id3 = self.between_popsize.ind_sample(rng);
+            let mut id3 = self.between_popsize.sample(rng);
             while id3 == id1 || id3 == id2 {
-                id3 = self.between_popsize.ind_sample(rng);
+                id3 = self.between_popsize.sample(rng);
             }
 
             let curr = &mut self.curr[i];
@@ -385,12 +392,12 @@ impl<F, R, C> Population<F, R, C>
             // see "Self-Adapting Control Parameters in Differential Evolution:
             // A Comparative Study on Numerical Benchmark Problems"
             if rng.gen::<f32>() < self.settings.cr_change_probability {
-                curr.cr = self.between_cr.ind_sample(rng);
+                curr.cr = self.between_cr.sample(rng);
             } else {
                 curr.cr = best.cr;
             }
             if rng.gen::<f32>() < self.settings.f_change_probability {
-                curr.f = self.between_f.ind_sample(rng);
+                curr.f = self.between_f.sample(rng);
             } else {
                 curr.f = best.f;
             }
@@ -401,7 +408,7 @@ impl<F, R, C> Population<F, R, C>
             let best2_pos = &self.best[id2].pos;
             let best3_pos = &self.best[id3].pos;
 
-            let forced_mutation_dim = self.between_dim.ind_sample(rng);
+            let forced_mutation_dim = self.between_dim.sample(rng);
 
             // This implements the DE/rand/1/bin, the most widely used algorithm.
             // See "A Comparative Study of Differential Evolution Variants for
@@ -418,7 +425,6 @@ impl<F, R, C> Population<F, R, C>
             curr.cost = None;
         }
     }
-
 
     /// Gets a tuple of the best cost and best position found so far.
     pub fn best(&self) -> Option<(&C, &[f32])> {
@@ -467,13 +473,13 @@ impl<F, R, C> Population<F, R, C>
         self.num_cost_evaluations += 1;
 
         // see if we have improved the global best
-        if self.best_cost_cache.is_none() ||
-           curr.cost.as_ref().unwrap() < self.best_cost_cache.as_ref().unwrap() {
+        if self.best_cost_cache.is_none()
+            || curr.cost.as_ref().unwrap() < self.best_cost_cache.as_ref().unwrap()
+        {
             self.best_cost_cache = curr.cost.clone();
             self.best_idx = Some(self.pop_countdown);
         }
     }
-
 
     /// Gets an iterator for this population. Each call to `next()`
     /// performs one cost evaluation.
@@ -482,21 +488,22 @@ impl<F, R, C> Population<F, R, C>
     }
 }
 
-
 /// Iterator for the differential evolution, to perform a single cost
 /// evaluation every time `move()` is called.
 pub struct PopIter<'a, F, R, C>
-    where F: 'a + Fn(&[f32]) -> C,
-          R: 'a + rand::Rng,
-          C: 'a + PartialOrd + Clone
+where
+    F: 'a + Fn(&[f32]) -> C,
+    R: 'a + rand::Rng,
+    C: 'a + PartialOrd + Clone,
 {
     pop: &'a mut Population<F, R, C>,
 }
 
 impl<'a, F, R, C> Iterator for PopIter<'a, F, R, C>
-    where F: 'a + Fn(&[f32]) -> C,
-          R: 'a + rand::Rng,
-          C: PartialOrd + Clone
+where
+    F: 'a + Fn(&[f32]) -> C,
+    R: 'a + rand::Rng,
+    C: PartialOrd + Clone,
 {
     type Item = C;
 
