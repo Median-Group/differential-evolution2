@@ -13,5 +13,4 @@ work in WASM,
 targeted at realtime systems and needs access to system time, etc).
 
 The original version of this library also depended on a version of `rand`
-that doesn't work in WASM, but fortunately the library was simple enough
-that updating the API wasn't too difficult.
+that doesn't work in WASM, but this library was simple enough that updating it was straightforward.
